@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: cloudflare-docker-golive-runbook
+expected_outcome: |
+  A step-by-step deploy and cutover runbook covering WordPress/Headpress configuration (headless mode without blocking indexing, trusted proxies behind Cloudflare, storefront URL and route map, revalidation webhook secret), storefront build-time env vars and Docker, Cloudflare DNS/cache rules, 301 redirects of old URLs, a smoke test, monitoring and a rollback plan.

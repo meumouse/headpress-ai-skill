@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: gift-message-addon
+expected_outcome: |
+  A working add-on plugin that registers a Headpress module, stores the message on the cart session and copies it to the order, exposes it under extensions.headpress in the Store API, offers a write path the storefront can call with the Cart-Token, and a storefront SDK plugin or client code that reads and writes it; server-side validation of the 200-char limit.

@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: store-api-cors-after-woo-update
+expected_outcome: |
+  A diagnosis that the Store API no longer sends Access-Control-Allow-Credentials to the storefront origin since WooCommerce 11.3.1, so the storefront must call it without credentials (credentials: 'omit') and rely on the Cart-Token header; it warns against fixing it by forcing credentials or wildcard origins, and checks the storefront origin and Cart-Token exposed headers in Headpress.
