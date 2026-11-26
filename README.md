@@ -1,5 +1,7 @@
 # Headpress AI skill
 
+**English** · [Português (Brasil)](README.pt-BR.md) · [Español](README.es-ES.md)
+
 An agent skill (`headpress-store`) that teaches AI coding assistants how to build a **headless
 WooCommerce store** on the Headpress stack **from zero to deploy**, and how to extend it with custom
 add-on plugins for client-specific features.
@@ -285,4 +287,5 @@ git archive --format=zip --prefix=headpress-store/ -o headpress-store.skill HEAD
 - **Re-run the evals** after a meaningful change, and add a case when a new kind of task keeps
   coming up.
 - Everything in this repository is written in English, with no AI attribution lines in files or
-  commits.
+  commits. The only exceptions are the translated READMEs (`README.pt-BR.md`, `README.es-ES.md`).
+  Keep them in sync whenever `README.md` changes.
