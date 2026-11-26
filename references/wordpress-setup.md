@@ -65,6 +65,47 @@ Never install a plugin by copying single files over SSH: install from its releas
 6. **Revalidation webhook** — URL `https://site.com/api/revalidate`, turn on *Send revalidation
    webhooks*, copy the secret into `HEADPRESS_WEBHOOK_SECRET`. Use *Send test* and watch Headpress →
    Webhooks. Storefront-rendered emails reuse the same secret at `/api/emails/send`.
+7. **Security** — *Trusted proxies* (CIDRs) and *Trust Cloudflare* when the WordPress host is
+   proxied by Cloudflare. These are the panel equivalent of `HEADPRESS_TRUSTED_PROXIES` (§4).
+
+**Filling the Storefront URL changes the live WordPress shop.** With the `woocommerce` module's *Use
+storefront URLs for order received, cart and checkout* toggle (`woocommerce.storefront_urls`, default
+**on**), WooCommerce's cart, checkout, order-received, view-order and My Account URLs point to the
+storefront as soon as the URL is set. That happens even with headless mode off, in wp-admin emails
+too. On a store that still sells through a classic theme, either set the URL only inside the cutover
+window or turn that toggle off until then (see `deploy-golive.md` §7).
+
+**Settings export/import.** Headpress → Settings → *Export settings* downloads every module's settings
+and the active modules as JSON (`GET /headpress/v1/admin/settings/export`). Importing it on another
+site (`POST /headpress/v1/admin/settings/import`) validates every module before writing anything. Use
+it to rehearse on staging and apply the same configuration in production. Treat the file as
+sensitive: it may hold secret fields such as the webhook secret. Never commit it. After importing,
+replace staging values: storefront URL, origins and webhook URL.
+
+**Panel labels in Portuguese (pt-BR).** Users of a pt-BR admin see these names. Quote them in that
+language when the user writes in Portuguese:
+
+| Setting key | English label | pt-BR label |
+|---|---|---|
+| menu `Storefront` | Storefront | Vitrine |
+| `storefront.storefront_url` | Storefront URL | URL da vitrine |
+| `storefront.allowed_origins` | Additional allowed origins | Origens adicionais permitidas |
+| `storefront.strict_origins` | Strict origins | Origens restritas |
+| `storefront.cors_namespaces` | Other REST namespaces for the storefront | Outros namespaces REST para a vitrine |
+| `storefront.disabled_routes` | Routes without a storefront page | Rotas sem página na loja |
+| `storefront.custom_routes` | Custom routes | Rotas personalizadas |
+| `storefront.trusted_proxies` / `trust_cloudflare` | Trusted proxies / Trust Cloudflare | Proxies confiáveis / Confiar no Cloudflare |
+| `storefront.require_publishable_key` | Require a publishable key | Exigir uma chave publicável |
+| `storefront.revalidation_enabled` | Send revalidation webhooks | Enviar webhooks de revalidação |
+| `storefront.webhook_url` / `webhook_secret` | Webhook URL / Webhook secret | URL do webhook / Segredo do webhook |
+| `headless.redirect_status` | Redirect type | Tipo de redirecionamento |
+| `headless.allowlist` | Paths that stay on WordPress | Caminhos que permanecem no WordPress |
+| `headless.noindex_header` | Send X-Robots-Tag: noindex | Enviar X-Robots-Tag: noindex |
+| `headless.allow_order_pay` | Keep the WooCommerce "Pay for order" page on WordPress | Manter a página "Pagar pedido" do WooCommerce no WordPress |
+| `woocommerce.storefront_urls` | Use storefront URLs for order received, cart and checkout | Use URLs da loja para pedido recebido, carrinho e checkout |
+
+Labels change between versions. For anything not listed, look the English string up in
+`languages/headpress-pt_BR.po` (or `-es_ES.po`) of the installed Headpress.
 
 ## 3. Modules
 

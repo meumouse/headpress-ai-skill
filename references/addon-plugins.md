@@ -223,6 +223,26 @@ with `headpress_module_disabled` when the module is off. Plugins can also transl
 (`onError`) and observe requests (`onRequest` / `onResponse`). Add the routes to the mock server so the
 demo keeps working.
 
+**Use what the starter already has. Don't hand-roll the transport.** Baseline agents writing
+storefront code without this guide invented cookie names and env vars. That code fails in the real
+starter with "cart not found". Rules:
+
+- Cart mutations from a Headpress cart action: `hp.cart.action("headpress", { action:
+  "<prefix>_x.set", … })` on the starter's client. It posts to `/wc/store/v1/cart/extensions` with
+  the Cart-Token and stores the rotated token, then returns the new cart. Read the result from
+  `cart.extensions.headpress["<prefix>_x"]`.
+- The Cart-Token lives where the starter's client keeps it: `cookieCartToken()`, cookie `hp_cart`,
+  readable by both the browser and the server. Server code gets it through the SDK's Next.js helpers.
+  Never create another cookie, and never an httpOnly one, which the browser client can't read.
+- The WordPress URL and keys come from the starter's env modules (`publicEnv.wpUrl`,
+  `publicEnv.publishableKey`, `serverEnv.*` in `src/lib/env*.ts`), never new variable names.
+- UI: the starter's own components and design tokens (no raw `<textarea>`/`<button>` styling).
+  Shopper-facing strings go in an i18n dictionary under `src/i18n/` and are registered in its index.
+  Never hard-code the language. Put the feature under `src/features/<domain>` or
+  `src/integrations/<name>`, and wire it into the existing page component (e.g. the cart page content).
+- Read the starter's files before writing: `src/lib/headpress/` (client and options),
+  `src/features/cart/`, `src/i18n/index.ts`. Match their patterns, then run `npm run verify`.
+
 ## 9. Admin UI
 
 Settings need no JS. For more (a preview panel, a custom field type, a full screen):

@@ -138,7 +138,9 @@ Follow `references/storefront.md`. Summary: clone the starter, `npm install`, `n
 WordPress on :8787, no WP needed) to see a working store; then `.env.local` from `.env.example`
 pointing `NEXT_PUBLIC_WP_URL` at the real backend, align `src/config/routes.ts` with the route map,
 rebrand through tokens (`src/styles/tokens.css`, fonts in `layout.tsx`, `src/config/site.ts`), add
-store pages under `src/app/(store)`.
+store pages under `src/app/(store)`. New storefront code reuses the starter's client, Cart-Token
+store, env modules, components and i18n dictionaries. It never invents its own
+(`references/addon-plugins.md` §8).
 
 Check: `npm run check:routes -- https://admin.site.com` passes, no CORS errors in the browser console,
 prices/installments/shipping match WooCommerce, `npm run verify` (lint + typecheck + test + build) passes.
@@ -185,13 +187,18 @@ redirect chains, no 404s that used to be indexed.
 
 `references/deploy-golive.md`. Storefront as a Docker image (`output: "standalone"`, Node 24 alpine,
 non-root), `NEXT_PUBLIC_*` passed as **build args** (they are inlined at build time), server secrets as
-**runtime env** only. CI builds and pushes an image per commit/tag for rollback. Behind a proxy,
-configure trusted proxies on both sides (`HEADPRESS_TRUSTED_PROXIES` in `wp-config.php`). Redis for
-the storefront cache if available.
+**runtime env** only. One image per environment, built when that environment's API answers (the
+build prerenders pages from WordPress). CI builds and pushes an image per commit/tag for rollback.
+Behind a proxy, configure trusted proxies on both sides: `HEADPRESS_TRUSTED_PROXIES` in
+`wp-config.php`, and `clientIp: { cloudflare: true }` in the starter's `createAuthHandler`, which ships
+without it. Redis for the storefront cache if available.
 
 ### Phase 7 — Go-live and operate
 
-Run the cutover runbook and smoke test in `references/deploy-golive.md`. After verification, switch
+Run the cutover runbook and smoke test in `references/deploy-golive.md`. While a classic theme still
+sells, set the Storefront URL and headless mode in production only inside the cutover window: the
+URL alone already rewrites WooCommerce's cart, checkout and account links. Keep already-sent email
+links (order received, view order, password reset) working. After verification, switch
 headless redirects to **301**. Turn off any legacy tracking the same minute the storefront goes live
 (otherwise purchases double-count). Watch Headpress → Webhooks deliveries, gateway webhooks, error
 monitoring and Search Console for the first weeks. Decommission legacy plugins only after logs show

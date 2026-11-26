@@ -48,6 +48,11 @@ Rules learned in production:
 - If the project uses `patch-package` or a custom `.npmrc`, `COPY patches .npmrc` **before** `npm ci`.
 - CI (e.g. GitHub Actions → GHCR): build on push to main (`latest`, `sha-…`) and on `v*` tags (semver
   tags for rollback); deploy by pulling a tag.
+- `npm run build` prerenders the static and ISR routes (layout, home, sitemap…) by **reading
+  WordPress**. Build the production image only when the production API host answers. Otherwise those
+  pages ship in the "unavailable" state and stay that way until their first revalidation.
+- `NEXT_PUBLIC_*` differ between staging and production, so each environment needs its own image.
+  Never promote the staging image to production.
 - There is no built-in health endpoint — add a cheap `/api/health` if the platform needs one.
 - Security headers in `next.config.ts` `headers()`: HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
   `Referrer-Policy`, `Permissions-Policy`; start CSP as **Report-Only** with a report collector that
@@ -60,6 +65,17 @@ Rules learned in production:
 - Storefront: compute the shopper IP with the SDK `clientIp(headers, { cloudflare: true, trustedProxies })`
   — never the leftmost XFF entry — and forward it with the secret key (`X-Headpress-Client-IP` +
   `X-Headpress-Secret`).
+- **The starter does not do this out of the box.** `src/app/api/auth/[...action]/route.ts` calls
+  `createAuthHandler({ baseUrl, publishableKey, secretKey })` without `clientIp`. Behind Cloudflare,
+  add `clientIp: { cloudflare: true }` (plus `trustedProxies` for a load balancer). Do the same in
+  every `createServerHeadpress({ clientIp })` that forwards shopper actions. Otherwise login and OTP
+  rate limits see Cloudflare's IPs.
+- Exposing the VPS: a **Cloudflare Tunnel** (`cloudflared`) needs no open ports. Without one, firewall
+  80/443 to Cloudflare's ranges only.
+- Cloudflare security features in front of WordPress: *Bot Fight Mode* (free plan) cannot be skipped per path and
+  blocks server-to-server calls. Those are storefront → WP reads, the WP → `/api/revalidate` webhook
+  and gateway callbacks, so keep it off. Use WAF custom rules with *Skip* for those paths and IPs
+  instead. Turn off Rocket Loader, Email Obfuscation and APO on both hosts.
 - Behind Traefik the app sees `http://` in `request.url`: derive the `Secure` cookie flag from
   `X-Forwarded-Proto` / the configured site URL, not from `request.url`.
 - Proxy body-size limit ≥ the largest upload (review videos: 64 MB).
@@ -102,7 +118,30 @@ Rules learned in production:
 - **Data:** the add-on imports legacy settings, user meta and lists idempotently, never deleting the
   old data (rollback stays possible).
 - **Third-party links already sent** (order emails, WhatsApp messages, payment links, cart recovery,
-  unsubscribe) need compatibility redirects to the new routes.
+  unsubscribe) need compatibility redirects to the new routes. The easy win is to keep WooCommerce's
+  current paths in the route map: `checkout/order-received/{order_id}?key=`, `my-account/view-order/`,
+  `my-account/lost-password/?key=&login=`, `checkout/order-pay/`. Use the store's real slugs, which
+  are often localized (`finalizar-compra`, `minha-conta`). If the paths do change, 301 them **keeping
+  the query string**: `key`, `login` and `order` are what make the link work.
+
+### When WordPress gives up the apex domain
+
+The usual migration: the classic store lives on `site.com` and WordPress moves to `admin.site.com`
+while Next.js takes `site.com`.
+
+- Change only `home`/`siteurl` (WP-CLI) and search-replace **media URLs only**
+  (`//site.com/wp-content/` → `//admin.site.com/wp-content/`). Leave content links to `site.com`:
+  they are storefront URLs now.
+- Put WordPress in maintenance (**503**, not a redirect) for the minutes between the DNS/domain
+  switch and the storefront answering. A temporary 301 from `site.com` to `admin.` gets cached by
+  browsers and causes loops after go-live.
+- Keep requests that still arrive at `site.com` for WordPress working during the transition: gateway
+  IPNs for Pix/boleto created before the switch (`/wc-api/*`, `?wc-api=`), ERP/NF-e integrations and
+  `/wp-json/*` callers. Send them to the WP origin with a Cloudflare Origin Rule or a `next.config.ts`
+  rewrite. Redirect `/wp-admin`, `/wp-login.php` and `/wp-content/*` to `admin.`.
+- Run WP cron through WP-CLI or system cron (`DISABLE_WP_CRON`), not over HTTP on the old host.
+- DNS: before touching the apex records, inventory the **mail records** (MX, SPF/DKIM/DMARC TXT,
+  `mail`/`webmail`/autodiscover CNAMEs that point at the old server). Lower the TTL a day ahead.
 
 ## 7. Cutover runbook
 
@@ -113,15 +152,27 @@ Pre-cutover:
 3. Back up the database and `wp-content/plugins`.
 4. Confirm production versions (WP, PHP, WooCommerce, each plugin — bridges stay unavailable until
    the bridged plugin defines its version constant).
+5. Rehearse the whole cutover on staging. Export the Headpress settings from there to import in
+   production (`wordpress-setup.md` §2).
+6. Write a go/no-go list with an abort condition for each cutover step, and who decides.
+
+**Keep the live shop consistent until the switch.** While the classic theme still sells, production
+must not get the Storefront URL with `woocommerce.storefront_urls` on, nor headless mode. Either
+would send cart, checkout and account links to pages that don't exist yet (`wordpress-setup.md` §2).
+Prepare and test everything on staging. In production, apply those settings inside the cutover
+window, behind a maintenance page when the domain also changes.
 
 Cutover, in order:
 1. Install/update Headpress, the add-on and plugins. Let the add-on import legacy data.
 2. Headpress → API keys: `hp_sk_…` (+ `hp_pk_…` if required).
 3. Headpress → Storefront: URL, origins, **route map** (every key explicit), routes without a page,
-   extra CORS namespaces, webhook URL + secret, webhook sending on.
+   extra CORS namespaces, webhook URL + secret, webhook sending on. Allowed origins hold the
+   production storefront origin **only**: remove `localhost` and staging origins.
 4. Enable modules in waves (core commerce + SEO + content → accounts/passwordless/captcha → wishlist/
    reviews/address book → checkout fields → consent + analytics → add-on modules).
-5. Storefront runtime env (`HEADPRESS_SECRET_KEY`, `HEADPRESS_WEBHOOK_SECRET`, Redis, email), deploy.
+5. Build the production image now that the API host answers (§2), with production `NEXT_PUBLIC_*`.
+   Set the storefront runtime env (`HEADPRESS_SECRET_KEY`, `HEADPRESS_WEBHOOK_SECRET`, Redis, email)
+   and deploy.
 6. `npm run check:routes -- https://admin.site.com`.
 7. **Immediately** disable legacy tracking (old pixel/plugin) — two systems with different `event_id`
    schemes double-count every purchase.

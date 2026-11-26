@@ -235,9 +235,9 @@ evals/<case-name>/
 
 | Case | Prompt (summary) | What the graders check |
 |---|---|---|
-| `gift-message-addon` | Build a plugin integrated with Headpress for a 200-character gift message in the cart, shown on the order and in emails, plus the storefront code | Headpress module registration, cart write path via Store API / Cart-Token, `extensions.headpress` read path, server-side validation, HPOS order meta in admin and emails, no cookies to the Store API, English code |
-| `cloudflare-docker-golive-runbook` | Deploy and cutover runbook: WordPress behind Cloudflare, storefront in Docker | `blog_public` untouched, trusted proxies, build-time `NEXT_PUBLIC_*`, revalidation webhook secret, 301 map, Cloudflare cache bypass for dynamic routes, order smoke test, rollback, storefront origin in CORS |
-| `store-api-cors-after-woo-update` | Cart CORS error after updating WooCommerce to 11.3.1 | Correct diagnosis (no credentials for the storefront origin), `credentials: "omit"` + Cart-Token, no unsafe "fix", Headpress origin and header checks, a way to verify |
+| `gift-message-addon` | Build a plugin integrated with Headpress for a 200-character gift message in the cart, shown on the order and in emails, plus the storefront code | Headpress module registration, cart write path via Store API / Cart-Token, `extensions.headpress` read path, server-side validation, HPOS order meta in admin and emails, no cookies to the Store API, English code, the starter's own client / Cart-Token store / components / i18n |
+| `cloudflare-docker-golive-runbook` | Deploy and cutover runbook: WordPress behind Cloudflare, storefront in Docker | `blog_public` untouched, trusted proxies, build-time `NEXT_PUBLIC_*`, revalidation webhook secret, 301 map, Cloudflare cache bypass for dynamic routes, order smoke test, rollback, storefront origin in CORS, classic shop intact until the switch, already-sent email links, no dev origins in production |
+| `store-api-cors-after-woo-update` | Cart CORS error after updating WooCommerce to 11.3.1 | Correct diagnosis (no credentials for the storefront origin), `credentials: "omit"` + Cart-Token, no unsafe "fix", storefront origin in Headpress, Cart-Token in allowed and exposed headers, a way to confirm the fix |
 
 Run them with Claude Code (v2.1.269 or later) from the repository root. Each case runs with and
 without the skill, and the report is written under `evals/results/`:

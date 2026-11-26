@@ -1,6 +1,7 @@
 # Pitfalls — real incidents and their fixes
 
-Read before shipping, and whenever something breaks "for no reason". Grouped by symptom.
+Read before shipping, and whenever something breaks "for no reason". Grouped by symptom. Most
+entries happened in production; a few were caught while reviewing generated code and cutover plans.
 
 ## The whole store / all of REST is down
 
@@ -32,6 +33,9 @@ Read before shipping, and whenever something breaks "for no reason". Grouped by 
   `edit_posts`/`manage_woocommerce`). Test with a customer account.
 - **Plugin code using `get_current_user_id()` at `woocommerce_init`** sees no user under JWT auth
   (the user is resolved later, in `determine_current_user` for REST). Resolve the user lazily.
+- **"Cart not found" from new storefront code** → it read the Cart-Token from an invented cookie
+  name, or wrote it as an httpOnly cookie the browser client can't read. Use the starter's client
+  (`hp.cart.action`, `cookieCartToken()` / `hp_cart`). See `addon-plugins.md` §8.
 
 ## Rate limits, abuse, IPs
 
@@ -39,6 +43,8 @@ Read before shipping, and whenever something breaks "for no reason". Grouped by 
   trusted proxies only.
 - **Without `HEADPRESS_TRUSTED_PROXIES`** every request has the proxy IP → one shopper's OTP attempts
   or the analytics relay's 60/min limit block the whole store.
+- **Storefront login/OTP rate limits hit everyone behind Cloudflare** → the starter's
+  `createAuthHandler` had no `clientIp` option. Add `clientIp: { cloudflare: true }`.
 - **WhatsApp OTP cost pumping** (like SMS pumping): daily caps per channel, allowed countries, captcha
   on `otp_start`. Send OTPs directly (not queued), with email fallback.
 - **Welcome-coupon abuse:** guard "first order" by CPF, phone, email and account, not one of them.
@@ -85,6 +91,13 @@ Read before shipping, and whenever something breaks "for no reason". Grouped by 
 - **`NEXT_PUBLIC_WP_URL` unset** silently pointed production at the mock — fail the build.
 - **A new `NEXT_PUBLIC_*` added to `env.ts` only** — it must also be a Dockerfile `ARG`/`ENV` and a CI build-arg.
 - **Cache shape changed but key prefix didn't** → old entries crashed new code. Version cache keys.
+- **Image built before the production API answered** → prerendered pages shipped in the
+  "unavailable" state. Build after `admin.` is live.
+- **Classic shop's cart/checkout links broke days before go-live** → the Storefront URL had been
+  filled in production, and `woocommerce.storefront_urls` (on by default) rewrote WooCommerce's
+  URLs. Set it inside the cutover window.
+- **Browsers looped after go-live** → a temporary 301 from the apex to `admin.` during the domain
+  switch got cached. Use a 503 maintenance page in that window.
 - Local dev against a self-signed WP: set `NODE_TLS_REJECT_UNAUTHORIZED=0` at process start (Node 24
   ignores it when set later, e.g. in `instrumentation.ts`); WooCommerce `wc/v3` Basic auth refuses plain HTTP.
 - ZIPs built on Windows with `\` path separators fail to install — zip with `/`.
